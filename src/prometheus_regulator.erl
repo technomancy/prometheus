@@ -1,4 +1,4 @@
--module(temp).
+-module(prometheus_regulator).
 
 -export([set/2, start/3]).
 

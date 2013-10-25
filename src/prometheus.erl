@@ -6,7 +6,7 @@
 -export([start/5, init/4, stop/1]).
 
 start(JID, Password, Server, Sensor, Pin) ->
-    Regulator = temp:start(Sensor, Pin, 24),
+    Regulator = prometheus_regulator:start(Sensor, Pin, 24),
     spawn(?MODULE, init, [JID, Password, Server, Regulator]).
 
 stop(Pid) ->
@@ -84,7 +84,7 @@ reply_text(Body, Regulator) ->
         nomatch -> "Yeah, whatever";
         {match,[_,{Start,Length}|_]} ->
             Temp = string:substr(Body, Start+1, Length),
-            temp:set(Regulator, string:to_integer(Temp)),
+            prometheus_regulator:set(Regulator, string:to_integer(Temp)),
             string:concat("Setting temp: ", Temp)
     end.
 
