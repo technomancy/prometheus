@@ -12,9 +12,9 @@ warm_enough(Sensor, Target) ->
     string:to_integer(file:read_file(Sensor)) >= Target.
 
 write_pin(Pin, true) ->
-    file:write_file(PinPath, "1").
+    file:write_file(Pin, "1");
 write_pin(Pin, false) ->
-    file:write_file(PinPath, "0").
+    file:write_file(Pin, "0").
 
 regulate(Sensor, Pin, Target) ->
     receive

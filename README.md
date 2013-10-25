@@ -1,16 +1,22 @@
 # Prometheus
 
-XMPP-powered heater unit.
+XMPP-powered heater unit on a BeagleBone Black.
 
 Put [Debian](http://elinux.org/BeagleBoardDebian#eMMC:_BeagleBone_Black) on it.
 
     $ aptitude install build-essential libxml2-dev libexpat1-dev erlang-nox git zile tmux tree unzip zip curl
 
-Handy during development:
+## Setup
 
-```lisp
-(setq inferior-erlang-machine-options
-      '("-pa" "/home/phil/src/prometheus/deps/exmpp/ebin"))
+```
+$ echo 33 > /sys/class/gpio/export
+$ echo out > /sys/devices/virtual/gpio/gpio33/direction
+```
+
+```erlang
+P1 = prometheus:start("bot@hagelb.org", "password", "xmpp1.hosted.im",
+                      "/sys/devices/ocp.2/helper.14/AIN0",
+                      "/sys/devices/virtual/gpio/gpio33/value").
 ```
 
 ## License

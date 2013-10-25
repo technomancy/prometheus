@@ -87,9 +87,3 @@ reply_text(Body, Regulator) ->
             prometheus_regulator:set(Regulator, string:to_integer(Temp)),
             string:concat("Setting temp: ", Temp)
     end.
-
-
-
-%% P1 = prometheus:start("bot@hagelb.org", "password", "xmpp1.hosted.im").
-
-%% prometheus:stop(P1). f(P1).
