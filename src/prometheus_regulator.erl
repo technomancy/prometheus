@@ -1,6 +1,6 @@
 -module(prometheus_regulator).
 
--export([set/2, start/3]).
+-export([set/2, start/3, regulate/3]).
 
 start(Sensor, Pin, Target) ->
     spawn(?MODULE, regulate, [Sensor, Pin, Target]).
