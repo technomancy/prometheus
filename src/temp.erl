@@ -8,11 +8,13 @@ start(Sensor, Pin, Target) ->
 set(Regulator, Temp) ->
     Regulator ! {set, Temp}.
 
-read(Sensor) ->
-    cool. %% TODO
+warm_enough(Sensor, Target) ->
+    string:to_integer(file:read_file(Sensor)) >= Target.
 
-write_pin(Pin, value) ->
-    ok. %% TODO
+write_pin(Pin, true) ->
+    file:write_file(PinPath, "1").
+write_pin(Pin, false) ->
+    file:write_file(PinPath, "0").
 
 regulate(Sensor, Pin, Target) ->
     receive
@@ -22,11 +24,6 @@ regulate(Sensor, Pin, Target) ->
             regulate(Sensor, Pin, Temp)
     after
         10000 ->
-            case read(Sensor) of
-                cool ->
-                    write_pin(Pin, "1");
-                warm ->
-                    write_pin(Pin, "0")
-            end,
+            write_pin(Pin, warm_enough(Sensor, Target)),
             regulate(Sensor, Pin, Target)
     end.
