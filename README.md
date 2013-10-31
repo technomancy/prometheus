@@ -16,7 +16,7 @@ will depend on how far you plan on positioning the board from the
 heater and sensor. If you don't want to use solid-core wire you can
 solder your wire to a strip of male header.
 
-<img src="pinout.jpg" align="right" />
+<img src="https://github.com/technomancy/prometheus/raw/master/pinout.jpg align="right" />
 
 The pin numbering on the BeagleBone is very confusing as there a
 number of different names for each pin. This project only requires the
