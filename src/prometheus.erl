@@ -6,7 +6,7 @@
 -export([start/5, init/4, stop/1]).
 
 start(JID, Password, Server, Sensor, Pin) ->
-    Regulator = prometheus_regulator:start(Sensor, Pin, 24),
+    Regulator = prometheus_regulator:start(Sensor, Pin, 650),
     spawn(?MODULE, init, [JID, Password, Server, Regulator]).
 
 stop(Pid) ->
@@ -30,20 +30,23 @@ init(JID, Password, Server, Regulator) ->
 loop(Session, Regulator) ->
     receive
         stop ->
-            Regulator ! stop,
-            exmpp_session:stop(Session);
+            exmpp_session:stop(Session),
+            Regulator ! stop;
+        {temp, ReplyTo, Temp} ->
+            send_temp(Session, ReplyTo, Temp),
+            loop(Session, Regulator);
+        %% Actual chats
         Record = #received_packet{packet_type=message,
                                   type_attr=Type} when Type =/= "error" ->
             handle(Session, Record, Regulator),
             loop(Session, Regulator);
-        %% Nothing fancy for presence
-        Record when Record#received_packet.packet_type == 'presence' ->
-            loop(Session, Regulator);
         %% Reply to pings
         Record when Record#received_packet.packet_type == 'iq',
         Record#received_packet.queryns == 'urn:xmpp:ping' ->
-            io:format("Received Ping stanza:~n~p~n~n", [Record]),
             handle(Session, Record, Regulator),
+            loop(Session, Regulator);
+        %% Nothing fancy for presence
+        Record when Record#received_packet.packet_type == 'presence' ->
             loop(Session, Regulator);
         %% Just print unknown stanzas
         Record ->
@@ -62,13 +65,19 @@ handle(Session, #received_packet{packet_type=iq,
 
 handle(Session, #received_packet{packet_type=message,
                                  raw_packet=Packet}, Regulator) ->
-    io:format("Received Message:~n~p~n~n", [Packet]),
     case exmpp_message:get_body(Packet) of
         %% Don't care about typing notifications, etc.
         undefined -> ok;
-        Body -> exmpp_session:send_packet(Session, reply_for(Packet,
-                                                             Regulator,
-                                                             Body))
+        <<"stop">> ->
+            exmpp_session:send_packet(Session, reply_for(Packet,
+                                                         Regulator,
+                                                         <<"stop">>)),
+            prometheus:stop(self());
+        Body ->
+            io:format("Received Message:~n~p~n~n", [Body]),
+            exmpp_session:send_packet(Session, reply_for(Packet,
+                                                         Regulator,
+                                                         Body))
     end.
 
 reply_for(Packet, Regulator, Body) ->
@@ -76,14 +85,29 @@ reply_for(Packet, Regulator, Body) ->
     To = exmpp_xml:get_attribute(Packet, <<"to">>, <<"unknown">>),
     TmpPacket = exmpp_xml:set_attribute(Packet, <<"from">>, To),
     TmpPacket2 = exmpp_xml:set_attribute(TmpPacket, <<"to">>, From),
-    TmpPacket3 = exmpp_message:set_body(TmpPacket2, reply_text(Body, Regulator)),
+    Reply = reply_text(From, Body, Regulator),
+    TmpPacket3 = exmpp_message:set_body(TmpPacket2, Reply),
     exmpp_xml:remove_attribute(TmpPacket3, <<"id">>).
 
-reply_text(Body, Regulator) ->
-    case re:run(Body, "^temp ([0-9]+)") of
-        nomatch -> "Yeah, whatever";
-        {match,[_,{Start,Length}|_]} ->
-            Temp = string:substr(Body, Start+1, Length),
-            prometheus_regulator:set(Regulator, string:to_integer(Temp)),
-            string:concat("Setting temp: ", Temp)
+reply_text(From, Body, Regulator) ->
+    case binary:split(Body, [<<" ">>], []) of
+        [<<"stop">>] -> "OK, bye";
+        [<<"temp">>, TempString] ->
+            {Temp, _} = string:to_integer(binary:bin_to_list(TempString)),
+            io:format("received ~p~n", [Temp]),
+            prometheus_regulator:set(Regulator, Temp),
+            string:concat("Setting temp: ", binary:bin_to_list(TempString));
+        %% TODO: query for target temp
+        [<<"temp">>] ->
+            prometheus_regulator:get(Regulator, self(), From),
+            "Hang on...";
+        _ -> "Yeah, whatevs."
     end.
+
+%% This is kinda crappy; should send through a unified function
+send_temp(Session, ReplyTo, Temp) ->
+    io:format("attempted send: ~p ~p ~n", [ReplyTo, Temp]),
+    Packet = exmpp_message:normal(string:concat("Temperature is ",
+                                                binary:bin_to_list(Temp))),
+    PacketTo = exmpp_xml:set_attribute(Packet, <<"to">>, ReplyTo),
+    exmpp_session:send_packet(Session, PacketTo).

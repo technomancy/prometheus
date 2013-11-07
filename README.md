@@ -16,7 +16,7 @@ will depend on how far you plan on positioning the board from the
 heater and sensor. If you don't want to use solid-core wire you can
 solder your wire to a strip of male header.
 
-<img src="https://github.com/technomancy/prometheus/raw/master/pinout.jpg align="right" />
+<img src="https://github.com/technomancy/prometheus/raw/master/pinout.jpg" align="right" />
 
 The pin numbering on the BeagleBone is very confusing as there a
 number of different names for each pin. This project only requires the
@@ -28,12 +28,23 @@ temperature sensor.
 
 ## Software Setup
 
-Put [Debian](http://elinux.org/BeagleBoardDebian#eMMC:_BeagleBone_Black) on it.
+Put [Debian](http://elinux.org/BeagleBoardDebian#eMMC:_BeagleBone_Black) on it, obviously.
 
-    $ aptitude install build-essential libxml2-dev erlang-nox git zile tmux tree unzip zip curl
+    $ aptitude install build-essential erlang-nox erlang-dev libxml2-dev libexpat1-dev libssl-dev git tmux
+
+Do a manual install of [rebar](https://github.com/rebar/rebar) and
+pull in dependencies:
+
+```
+$ curl -L https://github.com/rebar/rebar/wiki/rebar > /usr/local/bin/rebar
+$ chmod 755 /usr/local/bin/rebar
+$ cd /path/to/prometheus
+$ rebar get-deps
+```
 
 Set up the GPIO pins; both the digital out for the relay and the
-analog in for the temperature sensor.
+analog in for the temperature sensor. This will need to be done once
+per boot.
 
 ```
 $ echo 7 > /sys/class/gpio/export
@@ -41,11 +52,26 @@ $ echo out > /sys/devices/virtual/gpio/gpio7/direction
 $ echo cape-bone-iio > /sys/devices/bone_capemgr.*/slots
 ```
 
+Run `erl -pa deps/exmpp/ebin` from your checkout.
+
 ```erlang
-P1 = prometheus:start("bot@hagelb.org", "password", "xmpp1.hosted.im",
-                      "/sys/devices/ocp.2/helper.14/AIN5",
+c("src/prometheus.erl").
+c("src/prometheus_regulator.erl").
+P1 = prometheus:start("bot@hagelb.org", Password, "xmpp1.hosted.im",
+                      "/sys/devices/ocp.3/helper.15/AIN5",
                       "/sys/devices/virtual/gpio/gpio7/value").
 ```
+
+Or if testing on a machine without GPIO:
+
+```erlang
+P1 = prometheus:start("bot@hagelb.org", Password, "xmpp1.hosted.im",
+                      "/tmp/sensor", "/tmp/relay").
+```
+
+You'll need an XMPP account to connect to, obviously. Log in with
+another client to add your regular account as a contact before running
+the above.
 
 ## License
 
