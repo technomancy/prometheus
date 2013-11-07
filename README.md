@@ -18,13 +18,25 @@ solder your wire to a strip of male header.
 
 <img src="https://github.com/technomancy/prometheus/raw/master/pinout.jpg" align="right" />
 
-The pin numbering on the BeagleBone is very confusing as there a
-number of different names for each pin. This project only requires the
-P9 header, which is the one reaching from next to the full-sized USB
-port to the DC power jack. Most of what you need is at end near the
-USB port, but you'll need to draw from the 3.3V pin at the other end,
-(either pin second from the DC jack end of P9 will do) for the
-temperature sensor.
+The
+[pin numbering](http://stuffwemade.net/hwio/beaglebone-pin-reference/)
+on the BeagleBone is very confusing as there a number of different
+names for each pin. This project only requires the P9 header, which is
+the one reaching from next to the full-sized USB port to the DC power
+jack. Most of what you need is at end near the USB port, but you'll
+need to draw from the 3.3V pin at the other end, (either pin second
+from the DC jack end of P9 will do) for the temperature sensor.
+
+The
+[data sheet for the relay](http://www.fotek.com.hk/solid/SSR-1.htm)
+claims that it only draws 7.5ma at 12V; however in my observation it
+draws 9ma at 3.3V, which is well over what the BeagleBone can supply
+from a single gpio pin. Because of this it's necessary to use the gpio
+to toggle a signal from the Beaglebone's SYS 5V pin using another
+relay or a transistor. (not shown on the pinout diagram) Theoretically
+you could use either VDD voltage instead, but this didn't work for me,
+and the SYS pin provides up to 250ma, which is plenty for our
+purposes.
 
 ## Software Setup
 
@@ -39,7 +51,7 @@ pull in dependencies:
 $ curl -L https://github.com/rebar/rebar/wiki/rebar > /usr/local/bin/rebar
 $ chmod 755 /usr/local/bin/rebar
 $ cd /path/to/prometheus
-$ rebar get-deps
+$ rebar get-deps && rebar compile
 ```
 
 Set up the GPIO pins; both the digital out for the relay and the
@@ -57,21 +69,33 @@ Run `erl -pa deps/exmpp/ebin` from your checkout.
 ```erlang
 c("src/prometheus.erl").
 c("src/prometheus_regulator.erl").
-P1 = prometheus:start("bot@hagelb.org", Password, "xmpp1.hosted.im",
-                      "/sys/devices/ocp.3/helper.15/AIN5",
-                      "/sys/devices/virtual/gpio/gpio7/value").
+prometheus:start("bot@hagelb.org", Password, "xmpp1.hosted.im",
+                 "/sys/devices/ocp.3/helper.15/AIN5",
+                 "/sys/devices/virtual/gpio/gpio7/value").
 ```
+
+You may have to poke around to find the `AIN5` pin; from what I've
+observed the `ocp.N` and `helper.N` directories jumping around
+following no predictable logic unfortunately.
 
 Or if testing on a machine without GPIO:
 
 ```erlang
-P1 = prometheus:start("bot@hagelb.org", Password, "xmpp1.hosted.im",
-                      "/tmp/sensor", "/tmp/relay").
+prometheus:start("bot@hagelb.org", Password, "xmpp1.hosted.im",
+                 "/tmp/sensor", "/tmp/relay").
 ```
 
-You'll need an XMPP account to connect to, obviously. Log in with
-another client to add your regular account as a contact before running
-the above.
+You'll need an XMPP account for the bot to connect to, obviously, and
+one for yourself. Log in with another client to add your personal
+account as a contact before running the above.
+
+## Usage
+
+Set the temperature by sending a `temp 650` message to the bot's XMPP
+account. Temperature is currently represented as voltage read directly
+from the ADC; no conversion to celsius is done yet. Read the
+temperature with just `temp`. Sending `stop` will shut down the erlang
+processes but not the erlang shell.
 
 ## License
 
