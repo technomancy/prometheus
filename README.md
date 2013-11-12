@@ -91,9 +91,8 @@ account as a contact before running the above.
 
 ## Usage
 
-Set the temperature by sending a `temp 650` message to the bot's XMPP
-account. Temperature is currently represented as voltage read directly
-from the ADC; no conversion to celsius is done yet. Read the
+Set the temperature by sending a `temp 25` message to the bot's XMPP
+account. Upon startup, temperature target defaults to 23. Read the
 temperature with just `temp`. Sending `stop` will shut down the erlang
 processes but not the erlang shell.
 

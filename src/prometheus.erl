@@ -6,7 +6,7 @@
 -export([start/5, init/4, stop/1]).
 
 start(JID, Password, Server, Sensor, Pin) ->
-    Regulator = prometheus_regulator:start(Sensor, Pin, 650),
+    Regulator = prometheus_regulator:start(Sensor, Pin, 23),
     spawn(?MODULE, init, [JID, Password, Server, Regulator]).
 
 stop(Pid) ->
@@ -108,6 +108,6 @@ reply_text(From, Body, Regulator) ->
 send_temp(Session, ReplyTo, Temp) ->
     io:format("attempted send: ~p ~p ~n", [ReplyTo, Temp]),
     Packet = exmpp_message:normal(string:concat("Temperature is ",
-                                                binary:bin_to_list(Temp))),
+                                                io_lib:format("~.2f",[Temp]))),
     PacketTo = exmpp_xml:set_attribute(Packet, <<"to">>, ReplyTo),
     exmpp_session:send_packet(Session, PacketTo).

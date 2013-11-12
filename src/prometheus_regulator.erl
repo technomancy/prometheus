@@ -1,6 +1,6 @@
 -module(prometheus_regulator).
 
--export([start/3, regulate/3, set/2, get/3]).
+-export([start/3, regulate/3, set/2, get/3, temperature/1]).
 
 start(Sensor, Pin, Target) ->
     spawn(?MODULE, regulate, [Sensor, Pin, Target]).
@@ -11,13 +11,18 @@ set(Regulator, Temp) ->
 get(Regulator, RequestorPid, ReplyTo) ->
     Regulator ! {get, RequestorPid, ReplyTo}.
 
-warm_enough(Sensor, Target) ->
+temperature(Sensor) ->
     case file:read_file(Sensor) of
-        {ok, Temp} ->
-            {Sensed, _} = string:to_integer(binary:bin_to_list(Temp)),
-            Sensed >= Target;
-        _ -> true
+        {ok, TempBin} ->
+            {Sensed, _} = string:to_integer(binary:bin_to_list(TempBin)),
+            %% celsius reading is (v * 100) - 50
+            %% ADC gives us 0-1024 out of 1.8v, so dividing by 9.21 gives us v
+            (Sensed / 9.21) - 50;
+        _ -> erlang:error(no_sensor)
     end.
+
+warm_enough(Sensor, Target) ->
+    temperature(Sensor) >= Target.
 
 write_pin(Pin, true) ->
     file:write_file(Pin, "0");
@@ -29,12 +34,7 @@ regulate(Sensor, Pin, Target) ->
         stop ->
             ok;
         {get, RequestorPid, ReplyTo} ->
-            case file:read_file(Sensor) of
-                {error,enoent} ->
-                    RequestorPid ! {temp, ReplyTo, <<"Couldn't read sensor.">>};
-                {ok, Temp} ->
-                    RequestorPid ! {temp, ReplyTo, Temp}
-            end,
+            RequestorPid ! {temp, ReplyTo, temperature(Sensor)},
             regulate(Sensor, Pin, Target);
         {set, Temp} ->
             io:format("Setting temp: ~p~n", [Temp]),
