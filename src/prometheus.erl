@@ -28,6 +28,10 @@ reply([<<"temp">>, TempString]) ->
     {Temp, _} = string:to_integer(binary:bin_to_list(TempString)),
     prometheus_regulator:set(Temp),
     string:concat("Setting temp: ", binary:bin_to_list(TempString));
+reply([<<"in">>, Minutes, <<"minutes">>, TempString]) ->
+    {Temp, _} = string:to_integer(binary:bin_to_list(TempString)),
+    erlang:start_timer(Minutes * 60000, self(), {set, Temp}),
+    "you got it.";
 reply(_) ->
     "mkay...".
 
@@ -81,6 +85,10 @@ handle_info(#received_packet{packet_type=message, raw_packet=P,
 
 % don't care about presence
 handle_info(#received_packet{packet_type=presence}, Session) ->
+    {noreply, Session};
+
+handle_info({set, Temp}, Session) ->
+    prometheus_regulator:set(Temp),
     {noreply, Session};
 
 handle_info(Message, Session) ->
