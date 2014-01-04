@@ -40,6 +40,12 @@ handle_cast(Message, State) ->
     io:format("unexpected handle_cast: ~p", [Message]),
     {noreply, State, ?TIMEOUT}.
 
+handle_info(timeout, {Relay, on}) ->
+    write_pin(Relay, true),
+    {noreply, {Relay, on}, ?TIMEOUT};
+handle_info(timeout, {Relay, off}) ->
+    write_pin(Relay, false),
+    {noreply, {Relay, off}, ?TIMEOUT};
 handle_info(timeout, {Relay, Target}) ->
     write_pin(Relay, prometheus_sensor:get() < Target),
     {noreply, {Relay, Target}, ?TIMEOUT};

@@ -16,18 +16,22 @@
 
 %% internal
 
-reply(Input) ->
-    case binary:split(Input, [<<" ">>], []) of
-        [<<"temp">>] ->
-            Temp = prometheus_sensor:get(),
-            io_lib:format("Temperature is ~.2f",[Temp]);
-        [<<"temp">>, TempString] ->
-            {Temp, _} = string:to_integer(binary:bin_to_list(TempString)),
-            io:format("received ~p~n", [Temp]),
-            prometheus_regulator:set(Temp),
-            string:concat("Setting temp: ", binary:bin_to_list(TempString));
-        _ -> "mkay..."
-    end.
+reply([<<"on">>]) ->
+    prometheus_regulator:set(on),
+    "Override: on";
+reply([<<"off">>]) ->
+    prometheus_regulator:set(off),
+    "Override: off";
+reply([<<"temp">>]) ->
+    Temp = prometheus_sensor:get(),
+    io_lib:format("Temperature is ~.2f",[Temp]);
+reply([<<"temp">>, TempString]) ->
+    {Temp, _} = string:to_integer(binary:bin_to_list(TempString)),
+    io:format("received ~p~n", [Temp]),
+    prometheus_regulator:set(Temp),
+    string:concat("Setting temp: ", binary:bin_to_list(TempString));
+reply(_) ->
+    "mkay...".
 
 reply_packet(Packet, Body) ->
     From = exmpp_xml:get_attribute(Packet, <<"from">>, <<"unknown">>),
@@ -72,7 +76,8 @@ handle_info(#received_packet{packet_type=message, raw_packet=P,
         undefined -> ok;
         Body ->
             io:format("Received Message:~n~p~n~n", [Body]),
-            exmpp_session:send_packet(Session, reply_packet(P, reply(Body)))
+            ReplyText = reply(binary:split(Body, [<<" ">>], [])),
+            exmpp_session:send_packet(Session, reply_packet(P, ReplyText))
     end,
     {noreply, Session};
 
