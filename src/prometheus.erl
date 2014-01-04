@@ -23,11 +23,9 @@ reply([<<"off">>]) ->
     prometheus_regulator:set(off),
     "Override: off";
 reply([<<"temp">>]) ->
-    Temp = prometheus_sensor:get(),
-    io_lib:format("Temperature is ~.2f",[Temp]);
+    io_lib:format("Temperature is ~.2f", [prometheus_sensor:get()]);
 reply([<<"temp">>, TempString]) ->
     {Temp, _} = string:to_integer(binary:bin_to_list(TempString)),
-    io:format("received ~p~n", [Temp]),
     prometheus_regulator:set(Temp),
     string:concat("Setting temp: ", binary:bin_to_list(TempString));
 reply(_) ->
@@ -75,7 +73,7 @@ handle_info(#received_packet{packet_type=message, raw_packet=P,
         %% Don't care about typing notifications, etc.
         undefined -> ok;
         Body ->
-            io:format("Received Message:~n~p~n~n", [Body]),
+            io:format("Received: ~p~n", [binary:bin_to_list(Body)]),
             ReplyText = reply(binary:split(Body, [<<" ">>], [])),
             exmpp_session:send_packet(Session, reply_packet(P, ReplyText))
     end,
