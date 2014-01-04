@@ -64,26 +64,18 @@ $ echo out > /sys/devices/virtual/gpio/gpio7/direction
 $ echo cape-bone-iio > /sys/devices/bone_capemgr.*/slots
 ```
 
-Run `erl -pa deps/exmpp/ebin` from your checkout.
+Copy `prometheus.config.sample` to `prometheus.config` and set the
+connection information for the jabber account you'll be using and the
+location of your pins. You may have to poke around to find the `AIN5`
+pin; from what I've observed the `ocp.N` and `helper.N` directories
+jumping around following no predictable logic unfortunately. You can
+write an integer to a `/tmp/sensor` file to test on a machine that
+doesn't have the necessary GPIO pins.
 
-```erlang
-c("src/prometheus.erl").
-c("src/prometheus_regulator.erl").
-prometheus:start("bot@hagelb.org", Password, "xmpp1.hosted.im",
-                 "/sys/devices/ocp.3/helper.15/AIN5",
-                 "/sys/devices/virtual/gpio/gpio7/value").
-```
+Then launch Erlang:
 
-You may have to poke around to find the `AIN5` pin; from what I've
-observed the `ocp.N` and `helper.N` directories jumping around
-following no predictable logic unfortunately.
-
-Or if testing on a machine without GPIO:
-
-```erlang
-prometheus:start("bot@hagelb.org", Password, "xmpp1.hosted.im",
-                 "/tmp/sensor", "/tmp/relay").
-```
+``` $ erl -pa ebin -env ERL_LIBS deps -config prometheus \ -eval
+'application:ensure_all_started(prometheus)' ```
 
 You'll need an XMPP account for the bot to connect to, obviously, and
 one for yourself. Log in with another client to add your personal
@@ -93,11 +85,12 @@ account as a contact before running the above.
 
 Set the temperature by sending a `temp 25` message to the bot's XMPP
 account. Upon startup, temperature target defaults to 23. Read the
-temperature with just `temp`. Sending `stop` will shut down the erlang
-processes but not the erlang shell.
+temperature with just `temp`. You can override the sensor with just
+`on` or `off`, and you can schedule future changes with `in 5 minutes
+21`.
 
 ## License
 
-Copyright © 2013 Phil Hagelberg. Licensed under the Erlang
+Copyright © 2013-2014 Phil Hagelberg. Licensed under the Erlang
 Public License, version 1.1 or later. See COPYING for details.
 
