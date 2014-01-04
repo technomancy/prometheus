@@ -16,8 +16,18 @@
 
 %% internal
 
-reply(_Input) ->
-    "mkay...". % TODO: write
+reply(Input) ->
+    case binary:split(Input, [<<" ">>], []) of
+        [<<"temp">>] ->
+            Temp = prometheus_sensor:get(),
+            io_lib:format("Temperature is ~.2f",[Temp]);
+        [<<"temp">>, TempString] ->
+            {Temp, _} = string:to_integer(binary:bin_to_list(TempString)),
+            io:format("received ~p~n", [Temp]),
+            prometheus_regulator:set(Temp),
+            string:concat("Setting temp: ", binary:bin_to_list(TempString));
+        _ -> "mkay..."
+    end.
 
 reply_packet(Packet, Body) ->
     From = exmpp_xml:get_attribute(Packet, <<"from">>, <<"unknown">>),
@@ -47,7 +57,6 @@ init([]) ->
 
 handle_info(Message=#received_packet{packet_type=iq, raw_packet=IQ}, Session)
   when Message#received_packet.queryns == 'urn:xmpp:ping' ->
-    io:format("respond to ping~n", []),
     NS = exmpp_xml:get_ns_as_atom(exmpp_iq:get_payload(IQ)),
     Reply = exmpp_xml:element(NS, 'response', [], [{xmlcdata,<<"PONG">>}]),
     Result = exmpp_iq:result(IQ, exmpp_xml:element(NS, 'query', [], [Reply])),
