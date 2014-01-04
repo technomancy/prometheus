@@ -49,9 +49,10 @@ init([]) ->
     MyJID = exmpp_jid:make(User, JidServer, "prometheus"),
     exmpp_session:auth_basic_digest(Session, MyJID, Password),
     {ok, Server} = application:get_env(prometheus, server),
+    {ok, Status} = application:get_env(prometheus, status),
     {ok, _StreamId} = exmpp_session:connect_TCP(Session, Server, 5222),
     exmpp_session:login(Session),
-    SetStatus = exmpp_presence:set_status(exmpp_presence:available(), "ready"),
+    SetStatus = exmpp_presence:set_status(exmpp_presence:available(), Status),
     exmpp_session:send_packet(Session, SetStatus),
     {ok, Session}.
 
