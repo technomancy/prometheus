@@ -2,7 +2,7 @@
 
 -behaviour(gen_server).
 
--define(TIMEOUT, 60000).
+-define(POLL_PERIOD, 60000).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -31,6 +31,9 @@ log_temp(Temperature, LogFile) ->
     Entry = io_lib:format("~p ~.2f~n", [seconds(erlang:now()), Temperature]),
     ok = file:write(LogFile, Entry).
 
+start_timer() ->
+    erlang:start_timer(?POLL_PERIOD, self(), poll).
+
 
 
 %% otp
@@ -39,27 +42,29 @@ init([]) ->
     erlang:register(prometheus_sensor, self()),
     {ok, Sensor} = application:get_env(prometheus, sensor),
     {ok, Log} = application:get_env(prometheus, log),
-    LogFile = file:open(Log, [append]),
+    {ok, LogFile} = file:open(Log, [append]),
     Temp = temperature(Sensor),
-    {ok, {Temp, Sensor, LogFile}, ?TIMEOUT}.
+    start_timer(),
+    {ok, {Temp, Sensor, LogFile}}.
 
 handle_call(temperature, _From, {Temp, Sensor, LogFile}) ->
-    {reply, Temp, {Temp, Sensor, LogFile}, ?TIMEOUT};
+    {reply, Temp, {Temp, Sensor, LogFile}};
 handle_call(Message, From, State) ->
     io:format("unexpected handle_call: ~p ~p", [Message, From]),
-    {noreply, State, ?TIMEOUT}.
+    {noreply, State}.
 
 handle_cast(Message, State) ->
     io:format("unexpected handle_cast: ~p", [Message]),
-    {noreply, State, ?TIMEOUT}.
+    {noreply, State}.
 
-handle_info(timeout, {_Temp, Sensor, LogFile}) ->
+handle_info({timeout, _TRef, poll}, {_Temp, Sensor, LogFile}) ->
     Temp = temperature(Sensor),
     log_temp(Temp, LogFile),
-    {noreply, {Temp, Sensor, LogFile}, ?TIMEOUT};
+    start_timer(),
+    {noreply, {Temp, Sensor, LogFile}};
 handle_info(Message, State) ->
     io:format("unexpected handle_info: ~p", [Message]),
-    {noreply, State, ?TIMEOUT}.
+    {noreply, State}.
 
 terminate(Reason, {_Temp, _Sensor, LogFile}) ->
     io:format("terminated: ~p", [Reason]),
@@ -67,7 +72,7 @@ terminate(Reason, {_Temp, _Sensor, LogFile}) ->
     ok.
 
 code_change(_PreviousVersion, State, _Extra) ->
-    {ok, State, ?TIMEOUT}.
+    {ok, State}.
 
 
 
