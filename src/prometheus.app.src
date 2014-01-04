@@ -1,0 +1,14 @@
+%% -*- erlang -*-
+
+{application, prometheus,
+ [
+  {description, "XMPP-powered heater unit on a BeagleBone Black."},
+  {vsn, "1.0.0"},
+  {registered, [prometheus_regulator, prometheus_sensor]},
+  {applications, [kernel,
+                  stdlib,
+                  exmpp
+                 ]},
+  {mod, {prometheus_app, []}},
+  {env, []}
+ ]}.

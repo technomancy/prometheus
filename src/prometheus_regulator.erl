@@ -1,48 +1,71 @@
 -module(prometheus_regulator).
 
--export([start/3, regulate/3, set/2, get/3, temperature/1]).
+-behaviour(gen_server).
 
-start(Sensor, Pin, Target) ->
-    spawn(?MODULE, regulate, [Sensor, Pin, Target]).
+-define(TIMEOUT, 5000).
 
-set(Regulator, Temp) ->
-    Regulator ! {set, Temp}.
+%% gen_server callbacks
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2,
+        terminate/2, code_change/3]).
 
-get(Regulator, RequestorPid, ReplyTo) ->
-    Regulator ! {get, RequestorPid, ReplyTo}.
+%% our stuff
+-export([start_link/0, set/1]).
 
-temperature(Sensor) ->
-    case file:read_file(Sensor) of
-        {ok, TempBin} ->
-            {Sensed, _} = string:to_integer(binary:bin_to_list(TempBin)),
-            %% celsius reading is (v * 100) - 50
-            %% ADC gives us 0-1024 out of 1.8v, so dividing by 9.21 gives us v
-            (Sensed / 9.21) - 50;
-        _ -> erlang:error(no_sensor)
-    end.
+
 
-warm_enough(Sensor, Target) ->
-    temperature(Sensor) >= Target.
+%% internal
 
-write_pin(Pin, true) ->
-    file:write_file(Pin, "0");
 write_pin(Pin, false) ->
+    file:write_file(Pin, "0");
+write_pin(Pin, true) ->
     file:write_file(Pin, "1").
 
-regulate(Sensor, Pin, Target) ->
-    receive
-        stop ->
-            ok;
-        {get, RequestorPid, ReplyTo} ->
-            RequestorPid ! {temp, ReplyTo, temperature(Sensor)},
-            regulate(Sensor, Pin, Target);
-        {set, Temp} ->
-            io:format("Setting temp: ~p~n", [Temp]),
-            regulate(Sensor, Pin, Temp)
-    after
-        10000 ->
-            io:format("regulating to ~p: ~p.~n", [Target,
-                                                  warm_enough(Sensor, Target)]),
-            write_pin(Pin, warm_enough(Sensor, Target)),
-            regulate(Sensor, Pin, Target)
-    end.
+
+
+%% otp
+
+init([]) ->
+    erlang:register(prometheus_regulator, self()),
+    {ok, Relay} = application:get_env(prometheus, relay),
+    {ok, Target} = application:get_env(prometheus, init_temp),
+    {ok, {Relay, Target}, ?TIMEOUT}.
+
+handle_call({set, Target}, _From, {Relay, _Target}) ->
+    {reply, ok, {Relay, Target}, ?TIMEOUT};
+handle_call(Message, From, State) ->
+    io:format("unexpected handle_call: ~p ~p", [Message, From]),
+    {noreply, State, ?TIMEOUT}.
+
+handle_cast(Message, State) ->
+    io:format("unexpected handle_cast: ~p", [Message]),
+    {noreply, State, ?TIMEOUT}.
+
+handle_info(timeout, {Relay, on}) ->
+    write_pin(Relay, true),
+    {noreply, {Relay, on}, ?TIMEOUT};
+handle_info(timeout, {Relay, off}) ->
+    write_pin(Relay, false),
+    {noreply, {Relay, off}, ?TIMEOUT};
+handle_info(timeout, {Relay, Target}) ->
+    write_pin(Relay, prometheus_sensor:get() < Target),
+    {noreply, {Relay, Target}, ?TIMEOUT};
+handle_info(Message, State) ->
+    io:format("unexpected handle_info: ~p", [Message]),
+    {noreply, State, ?TIMEOUT}.
+
+terminate(Reason, _State) ->
+    io:format("terminated: ~p", [Reason]),
+    ok.
+
+code_change(_PreviousVersion, State, _Extra) ->
+    {ok, State, ?TIMEOUT}.
+
+
+
+%% api
+
+set(Target) ->
+    gen_server:call(prometheus_regulator, {set, Target}).
+
+start_link() ->
+    gen_server:start_link(?MODULE, [], []).
