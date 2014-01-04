@@ -12,14 +12,29 @@
 %% our stuff
 -export([start_link/0]).
 
-start_link() ->
-    gen_server:start_link(?MODULE, [], []).
+
+
+%% internal
+
+reply(_Input) ->
+    "mkay...". % TODO: write
+
+reply_packet(Packet, Body) ->
+    From = exmpp_xml:get_attribute(Packet, <<"from">>, <<"unknown">>),
+    To = exmpp_xml:get_attribute(Packet, <<"to">>, <<"unknown">>),
+    TmpPacket = exmpp_xml:set_attribute(Packet, <<"from">>, To),
+    TmpPacket2 = exmpp_xml:set_attribute(TmpPacket, <<"to">>, From),
+    TmpPacket3 = exmpp_message:set_body(TmpPacket2, Body),
+    exmpp_xml:remove_attribute(TmpPacket3, <<"id">>).
+
+
+
+%% otp
 
 init([]) ->
     Session = exmpp_session:start(),
     {ok, JID} = application:get_env(prometheus, jid),
     {ok, Password} = application:get_env(prometheus, password),
-    io:format("init with ~p ~p", [JID, Password]),
     [User, JidServer] = string:tokens(JID, "@"),
     MyJID = exmpp_jid:make(User, JidServer, "prometheus"),
     exmpp_session:auth_basic_digest(Session, MyJID, Password),
@@ -29,8 +44,6 @@ init([]) ->
     SetStatus = exmpp_presence:set_status(exmpp_presence:available(), "ready"),
     exmpp_session:send_packet(Session, SetStatus),
     {ok, Session}.
-
-
 
 handle_info(Message=#received_packet{packet_type=iq, raw_packet=IQ}, Session)
   when Message#received_packet.queryns == 'urn:xmpp:ping' ->
@@ -49,7 +62,7 @@ handle_info(#received_packet{packet_type=message, raw_packet=P,
         undefined -> ok;
         Body ->
             io:format("Received Message:~n~p~n~n", [Body]),
-            exmpp_session:send_packet(Session, reply_packet(P, "mkay..."))
+            exmpp_session:send_packet(Session, reply_packet(P, reply(Body)))
     end,
     {noreply, Session};
 
@@ -60,18 +73,6 @@ handle_info(#received_packet{packet_type=presence}, Session) ->
 handle_info(Message, Session) ->
     io:format("unexpected handle_info: ~p", [Message]),
     {noreply, Session}.
-
-
-
-reply_packet(Packet, Body) ->
-    From = exmpp_xml:get_attribute(Packet, <<"from">>, <<"unknown">>),
-    To = exmpp_xml:get_attribute(Packet, <<"to">>, <<"unknown">>),
-    TmpPacket = exmpp_xml:set_attribute(Packet, <<"from">>, To),
-    TmpPacket2 = exmpp_xml:set_attribute(TmpPacket, <<"to">>, From),
-    TmpPacket3 = exmpp_message:set_body(TmpPacket2, Body),
-    exmpp_xml:remove_attribute(TmpPacket3, <<"id">>).
-
-
 
 handle_call(Message, From, Session) ->
     io:format("unexpected handle_call: ~p ~p", [Message, From]),
@@ -87,3 +88,10 @@ terminate(Reason, _Session) ->
 
 code_change(_PreviousVersion, State, _Extra) ->
     {ok, State}.
+
+
+
+%% api
+
+start_link() ->
+    gen_server:start_link(?MODULE, [], []).

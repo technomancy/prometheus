@@ -4,7 +4,7 @@
  [
   {description, "XMPP-powered heater unit on a BeagleBone Black."},
   {vsn, "1.0.0"},
-  % {registered, [prometheus_regulator]},
+  {registered, [prometheus_regulator, prometheus_sensor]},
   {applications, [kernel,
                   stdlib,
                   exmpp

@@ -4,4 +4,5 @@
                {password, "..."},
                {server, "xmpp1.hosted.im"},
                {sensor, "/sys/devices/ocp.3/helper.15/AIN5"},
-               {relay, "/sys/devices/virtual/gpio/gpio7/value"}]}].
+               {relay, "/sys/devices/virtual/gpio/gpio7/value"},
+               {init_temp, 23}]}].

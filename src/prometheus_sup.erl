@@ -26,5 +26,8 @@ start_link() ->
 init([]) ->
     Prometheus = {prometheus, {prometheus, start_link, []},
                   permanent, infinity, worker, [gen_server]},
-    {ok, { {one_for_one, 5, 10}, [Prometheus]} }.
-
+    Sensor = {prometheus_sensor, {prometheus_sensor, start_link, []},
+              permanent, infinity, worker, [gen_server]},
+    Regulator = {prometheus_regulator, {prometheus_regulator, start_link, []},
+              permanent, infinity, worker, [gen_server]},
+    {ok, { {one_for_one, 5, 10}, [Prometheus, Sensor, Regulator]} }.
